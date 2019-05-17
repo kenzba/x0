@@ -43,6 +43,13 @@ int recvCoord(FILE *f, int *row, int *col)
 	return (n == 2) ? (0) : (-1);
 }
 
+int sendHelp(FILE *f)
+{
+	fprintf(f, "fire: ROW COL\n");
+	fflush(f);
+	return 0;
+}
+
 // Send X-0 field
 int sendCells(FILE *f, char *cells[])
 {
@@ -135,9 +142,20 @@ int processGame(FILE *playerX, FILE *player0)
 	int indx;
 	FILE *players[] = {playerX, player0};
 
-	// Game cicle
+	// Help
+	sendHelp(players[0]);
+	sendHelp(players[1]);
+
+	// Game cycle
 	for (int step = 0; 1; ++step)
 	{
+		// Check EOF
+		if (feof(players[0]) || feof(players[1]))
+		{
+			perror("Break connection\n");
+			goto GAME_OVER;
+		}
+
 		// Send current situation
 		sendCells(players[0], cells);
 		sendCells(players[1], cells);
@@ -175,7 +193,7 @@ int processGame(FILE *playerX, FILE *player0)
 		{
 			// Prompt string
 			char fire = (indx == 0) ? 'X' : '0';
-			fprintf(players[indx], "enter %c-fire coordinate> ", fire);
+			fprintf(players[indx], "%c-fire coordinate> ", fire);
 			fflush(players[indx]);
 
 			// Get coordinate
@@ -262,8 +280,8 @@ int main(int argc , char *argv[])
 		if (consock < 0)
 		{
 			perror("accept error");
-			close(srvsock);
-			return EXIT_FAILURE;
+			--playerID;
+			continue;
 		}
 
 		char fire = ((playerID % 2) == 0) ? 'X' : '0';
@@ -274,9 +292,9 @@ int main(int argc , char *argv[])
 		if (client == NULL)
 		{
 			perror("fdopen error");
-			close(srvsock);
 			close(consock);
-			return EXIT_FAILURE;
+			--playerID;
+			continue;
 		}
 
 		// Greeting the player
@@ -298,20 +316,27 @@ int main(int argc , char *argv[])
 			if (pid == -1)
 			{
 				perror("fork error");
-				return EXIT_FAILURE;
+				fclose(playerX);
+				fclose(player0);
 			}
 			else if (pid == 0)
 			{
 				// Child process
-				processGame(playerX, player0);
+				close(srvsock);
+				processGame(playerX, player0); // game cycle
+
+				// Game over
+				printf("Game over for palayers %d and %d\n",
+					playerID - 1, playerID);
 				fclose(playerX);
 				fclose(player0);
-				break; // game over
+				return EXIT_SUCCESS;
 			}
 			else
 			{
 				// Parent process
-				printf("Child PID (X-0 game): %d\n", pid);
+				printf("Start X-0 game for palayers %d and %d. Child PID: %d\n",
+					playerID - 1, playerID, pid);
 				fclose(playerX);
 				fclose(player0);
 			}
