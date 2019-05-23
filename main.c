@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/wait.h>
@@ -235,6 +236,9 @@ GAME_OVER:
 int main(int argc , char *argv[])
 {
 	int err; 
+
+	// Wrestling with future zombie processes
+	signal(SIGCHLD, SIG_IGN);
 
 	// Create socket
 	int srvsock = socket(PF_INET, SOCK_STREAM, 0);
