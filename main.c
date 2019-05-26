@@ -142,6 +142,7 @@ int processGame(FILE *playerX, FILE *player0)
 	int row, col;
 	int indx;
 	FILE *players[] = {playerX, player0};
+	pid_t pid = getpid();
 
 	// Help
 	sendHelp(players[0]);
@@ -201,7 +202,9 @@ int processGame(FILE *playerX, FILE *player0)
 			int err = recvCoord(players[indx], &row, &col);
 			if (err < 0)
 			{
-				fprintf(players[indx], "Bad coordinate\n");
+				char *msg = "Bad coordinate";
+				fprintf(stderr, "%d: %s\n", pid, msg);
+				fprintf(players[indx], "%s\n", msg);
 				fflush(players[indx]);
 				continue;
 			}
@@ -210,17 +213,22 @@ int processGame(FILE *playerX, FILE *player0)
 			err = checkCoord(row, col, cells);
 			if (err < 0)
 			{
-				fprintf(players[indx],
-					(err == -2)
-					? "Coordinate out of bound!\n"
-					: "Coordinate already in use!\n"
-				);
+				char *msg = (err == -2)
+					? "Coordinate out of bound!"
+					: "Coordinate already in use!";
+				fprintf(stderr, "%d: %s\n", pid, msg);
+				fprintf(players[indx], "%s\n", msg);
 				fflush(players[indx]);
 				continue;
 			}
 
 			// Make step
 			cells[row][col] = fire;
+
+			// Log step
+			fprintf(stderr, "%d: %c-player step is %d %d\n",
+				pid, fire, row, col);
+			sendCells(stderr, cells);
 
 			break;
 		}
